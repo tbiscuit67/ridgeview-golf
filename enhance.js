@@ -17,6 +17,25 @@ if (revealEls.length) {
   revealEls.forEach((el) => io.observe(el));
 }
 
+// Mobile hamburger nav — toggles the dropdown, closes when a link is tapped
+const navToggle = document.getElementById("nav-toggle");
+const siteNav = document.querySelector(".site-nav");
+const navLinksEl = document.getElementById("nav-links");
+if (navToggle && siteNav && navLinksEl) {
+  navToggle.addEventListener("click", () => {
+    const open = siteNav.classList.toggle("nav-open");
+    navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  });
+  navLinksEl.querySelectorAll("a").forEach((link) =>
+    link.addEventListener("click", () => {
+      siteNav.classList.remove("nav-open");
+      navToggle.setAttribute("aria-expanded", "false");
+      navToggle.setAttribute("aria-label", "Open menu");
+    })
+  );
+}
+
 // Sticky "Register" CTA — appears once the hero has scrolled out of view,
 // hides again once the register form itself (or anything after it) is on
 // screen so it doesn't float on top of the form/contact section.

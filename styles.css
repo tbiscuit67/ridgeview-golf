@@ -196,6 +196,47 @@ a { color: var(--fairway-deep); }
   text-transform: uppercase;
 }
 
+/* Mobile hamburger toggle — hidden on desktop, revealed at the 860px breakpoint */
+.nav-toggle {
+  display: none;
+  width: 50px;
+  height: 46px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--flag);
+  border: 3px solid var(--ink-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow-hard-sm);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.nav-toggle:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink-strong); }
+
+.nav-toggle-icon,
+.nav-toggle-icon::before,
+.nav-toggle-icon::after {
+  display: block;
+  width: 24px;
+  height: 3px;
+  background: var(--white);
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.nav-toggle-icon { position: relative; }
+.nav-toggle-icon::before,
+.nav-toggle-icon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+}
+.nav-toggle-icon::before { top: -8px; }
+.nav-toggle-icon::after { top: 8px; }
+
+.site-nav.nav-open .nav-toggle-icon { background: transparent; }
+.site-nav.nav-open .nav-toggle-icon::before { transform: translateY(8px) rotate(45deg); }
+.site-nav.nav-open .nav-toggle-icon::after { transform: translateY(-8px) rotate(-45deg); }
+
 .nav-links {
   display: flex;
   align-items: center;
@@ -962,7 +1003,33 @@ footer a { color: var(--gold); }
   .pitch-grid, .sponsor-grid, .included-list { grid-template-columns: 1fr; }
   .price-cards { grid-template-columns: 1fr; }
   .field-row { grid-template-columns: 1fr; }
-  .nav-links { display: none; }
+  .nav-toggle { display: inline-flex; }
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    background: var(--fairway-deep);
+    border: 3px solid var(--ink-strong);
+    border-radius: 10px;
+    box-shadow: var(--shadow-hard);
+    padding: 12px;
+    z-index: 120;
+  }
+  .site-nav.nav-open .nav-links { display: flex; }
+  .nav-links li { width: 100%; }
+  .nav-links a {
+    display: block;
+    width: 100%;
+    padding: 14px 12px;
+    font-size: 1.4rem;
+  }
+  .nav-links a::after { display: none; }
+  .nav-links .nav-cta { text-align: center; margin-top: 6px; }
   .reg-form { padding: 26px; }
   .spotlight { grid-template-columns: 1fr; }
   .spotlight-media { order: -1; transform: none; }
