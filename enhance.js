@@ -50,3 +50,49 @@ if (stickyCta && heroEl && registerEl) {
   new IntersectionObserver(([entry]) => { heroVisible = entry.isIntersecting; updateStickyCta(); }, { threshold: 0 }).observe(heroEl);
   new IntersectionObserver(([entry]) => { registerVisible = entry.isIntersecting; updateStickyCta(); }, { threshold: 0 }).observe(registerEl);
 }
+
+// Golfers-registered thermometer. Reads the live count from the Apps Script backend
+// (base golfers set in the Sheet + everyone who has paid online) and animates the bar.
+// Uses JSONP so the browser can read it cross-origin without CORS headaches. If the
+// backend isn't configured yet, or the request fails, it simply stays at 0.
+const goalFill = document.getElementById("goal-fill");
+const goalCurrentLabel = document.getElementById("goal-current");
+
+function setGolferCount(registered, max) {
+  const total = max || 72;
+  const n = Math.max(0, Math.min(Number(registered) || 0, total));
+  if (goalCurrentLabel) goalCurrentLabel.textContent = String(n);
+  if (goalFill) {
+    requestAnimationFrame(() => {
+      goalFill.style.width = Math.round((n / total) * 100) + "%";
+    });
+  }
+}
+
+function fetchGolferCount(execUrl) {
+  return new Promise((resolve, reject) => {
+    const cbName = "__golfCount" + Date.now();
+    const script = document.createElement("script");
+    const timer = setTimeout(() => { cleanup(); reject(new Error("timeout")); }, 8000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error("load error")); };
+    script.src = execUrl + (execUrl.indexOf("?") === -1 ? "?" : "&") + "callback=" + cbName;
+    document.head.appendChild(script);
+  });
+}
+
+if (goalFill) {
+  const backendUrl = (typeof CONFIG !== "undefined" && CONFIG.APPS_SCRIPT_URL) || "";
+  if (backendUrl && backendUrl.indexOf("PASTE_") === -1) {
+    fetchGolferCount(backendUrl)
+      .then((data) => setGolferCount(data.registered, data.max))
+      .catch(() => setGolferCount(0, 72));
+  } else {
+    setGolferCount(0, 72);
+  }
+}
