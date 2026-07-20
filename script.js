@@ -1,7 +1,7 @@
 // ---- Configuration: fill these in after deployment (see SETUP.md) ----
 const CONFIG = {
   // Apps Script Web App /exec URL, from Deploy > New deployment > Web app
-  APPS_SCRIPT_URL: "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE",
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbyOXYHFvI3cNZkgEmSkQZ2Hr-FszZ0h1J6YgWf-FgnymqUR6SHnPhz-2u4ZRi4PW-qKrA/exec",
   // Base URL of the dedicated golf Givebutter campaign, e.g. https://givebutter.com/sam-anders-scramble
   GIVEBUTTER_CAMPAIGN_URL: "PASTE_YOUR_GIVEBUTTER_CAMPAIGN_URL_HERE",
   // Givebutter Fund IDs, created in the Givebutter dashboard per category (see SETUP.md)
@@ -118,9 +118,6 @@ function showMsg(text, type) {
   el.className = `form-msg show ${type}`;
 }
 
-function mockRegistrationId() {
-  return "RGS-" + Date.now().toString(36).toUpperCase();
-}
 
 // ---- Submit ----
 $("#reg-form").addEventListener("submit", async (e) => {
@@ -188,36 +185,42 @@ $("#reg-form").addEventListener("submit", async (e) => {
     }
   }
 
-  let registrationId = null;
   const backendConfigured = CONFIG.APPS_SCRIPT_URL && !CONFIG.APPS_SCRIPT_URL.startsWith("PASTE_");
+  const paymentConfigured = CONFIG.GIVEBUTTER_CAMPAIGN_URL && !CONFIG.GIVEBUTTER_CAMPAIGN_URL.startsWith("PASTE_");
 
-  if (backendConfigured) {
-    try {
-      const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      registrationId = data.registrationId;
-    } catch (err) {
-      console.error("Registration submission failed", err);
-      showMsg("Something went wrong submitting your registration. Please try again or contact Stan Dixon directly.", "error");
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Continue to Payment";
-      return;
-    }
-  } else {
-    // Dev/demo mode: backend not deployed yet, simulate so the flow can be tested end to end.
-    console.warn("CONFIG.APPS_SCRIPT_URL not set — using a local mock registration ID. See SETUP.md.");
-    await new Promise((r) => setTimeout(r, 400));
-    registrationId = mockRegistrationId();
+  // Only go fully live (save + send to payment) when BOTH the backend and the
+  // Givebutter payment page are configured — otherwise we'd capture someone's
+  // registration and then hand them a dead payment link. Until then, point people
+  // to the coordinator so no one falls into a broken flow.
+  if (!backendConfigured || !paymentConfigured) {
+    showMsg(
+      "Online registration is being finalized. To reserve your spot right now, contact Stan Dixon at (404) 210-1740 or stanldixon@gmail.com.",
+      "info"
+    );
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Continue to Payment";
+    return;
+  }
+
+  let registrationId = null;
+  try {
+    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    registrationId = data.registrationId;
+  } catch (err) {
+    console.error("Registration submission failed", err);
+    showMsg("Something went wrong submitting your registration. Please try again or contact Stan Dixon directly.", "error");
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Continue to Payment";
+    return;
   }
 
   const fundId = CONFIG.FUNDS[category] || "";
-  const payUrl = new URL(
-    CONFIG.GIVEBUTTER_CAMPAIGN_URL.startsWith("PASTE_") ? "https://givebutter.com/" : CONFIG.GIVEBUTTER_CAMPAIGN_URL
-  );
+  const payUrl = new URL(CONFIG.GIVEBUTTER_CAMPAIGN_URL);
   payUrl.searchParams.set("amount", String(amount));
   if (fundId && !fundId.startsWith("PASTE_")) payUrl.searchParams.set("fund", fundId);
 
@@ -226,12 +229,7 @@ $("#reg-form").addEventListener("submit", async (e) => {
   $("#pay-link").href = payUrl.toString();
   $("#confirm-panel").classList.add("show");
   form.querySelectorAll("input, select, textarea, button[type=submit]").forEach((el) => (el.disabled = true));
-
-  if (!backendConfigured) {
-    showMsg("Demo mode: no backend configured yet, this registration was not saved. See SETUP.md to go live.", "info");
-  } else {
-    showMsg("Registration captured. Check your email for a confirmation.", "success");
-  }
+  showMsg("Registration captured. Check your email for a confirmation.", "success");
 });
 
 // ---- Init ----
