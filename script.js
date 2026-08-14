@@ -8,7 +8,7 @@ const CONFIG = {
   PAYPAL_CLIENT_ID: "BAArkJGh33VS3VJ3J8VLO728XB-QDiIm5Zl0XL1TIwMtu1FIyjf5KyHpMgHZLxa8ICUmu4EikLzHLn2lyw",
 };
 
-const PLAY_PRICES = { "1": 1, "2": 300, "3": 450, "4": 600 }; // TEMP TEST PRICE — revert "1" to 150 before going live
+const PLAY_PRICES = { "1": 150, "2": 300, "3": 450, "4": 600 };
 const TIER_LABELS = {
   GOLDEN_ACE: "Golden Ace Sponsorship",
   SILVER_EAGLE: "Silver Eagle Sponsorship",
