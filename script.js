@@ -2,21 +2,13 @@
 const CONFIG = {
   // Apps Script Web App /exec URL, from Deploy > New deployment > Web app
   APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbyOXYHFvI3cNZkgEmSkQZ2Hr-FszZ0h1J6YgWf-FgnymqUR6SHnPhz-2u4ZRi4PW-qKrA/exec",
-  // Base URL of the dedicated golf Givebutter campaign, e.g. https://givebutter.com/sam-anders-scramble
-  GIVEBUTTER_CAMPAIGN_URL: "PASTE_YOUR_GIVEBUTTER_CAMPAIGN_URL_HERE",
-  // Givebutter Fund IDs, created in the Givebutter dashboard per category (see SETUP.md)
-  FUNDS: {
-    PLAY: "PASTE_FUND_ID",
-    GOLDEN_ACE: "PASTE_FUND_ID",
-    SILVER_EAGLE: "PASTE_FUND_ID",
-    BRONZE_BIRDIE: "PASTE_FUND_ID",
-    EXCLUSIVE: "PASTE_FUND_ID",
-    HOLE_TEE: "PASTE_FUND_ID",
-    HOLE_TEE_GREEN: "PASTE_FUND_ID",
-  },
+  // PayPal REST app Client ID (public — safe to expose in site JS). From
+  // developer.paypal.com/dashboard > Apps & Credentials > your app > Client ID.
+  // Use the LIVE app's Client ID, not Sandbox. See SETUP.md.
+  PAYPAL_CLIENT_ID: "BAArkJGh33VS3VJ3J8VLO728XB-QDiIm5Zl0XL1TIwMtu1FIyjf5KyHpMgHZLxa8ICUmu4EikLzHLn2lyw",
 };
 
-const PLAY_PRICES = { "1": 150, "2": 300, "3": 450, "4": 600 };
+const PLAY_PRICES = { "1": 1, "2": 300, "3": 450, "4": 600 }; // TEMP TEST PRICE — revert "1" to 150 before going live
 const TIER_LABELS = {
   GOLDEN_ACE: "Golden Ace Sponsorship",
   SILVER_EAGLE: "Silver Eagle Sponsorship",
@@ -25,6 +17,7 @@ const TIER_LABELS = {
   HOLE_TEE: "Individual Hole Sponsorship (Tee Box Only)",
   HOLE_TEE_GREEN: "Individual Hole Sponsorship (Tee Box & Green Side)",
 };
+const PLAY_LABEL = "Play a Round";
 
 const state = { activeTab: "play" };
 
@@ -97,6 +90,12 @@ function currentCategory() {
   return checked ? checked.value : null;
 }
 
+function currentCategoryLabel() {
+  const category = currentCategory();
+  if (category === "PLAY") return PLAY_LABEL;
+  return TIER_LABELS[category] || category || "Registration";
+}
+
 function updateAmount() {
   const amount = currentAmount();
   $("#amount-value").textContent = amount ? `$${amount.toLocaleString()}` : "$0";
@@ -118,6 +117,63 @@ function showMsg(text, type) {
   el.className = `form-msg show ${type}`;
 }
 
+// ---- PayPal Smart Buttons ----
+// Loaded on demand (only once someone actually reaches the payment step) so the
+// PayPal SDK never blocks the page's initial load. custom_id carries our own
+// RegistrationID into the PayPal order, so when the payment webhook reaches the
+// Apps Script backend it can match the exact registration instead of guessing
+// from the payer's name/email.
+let paypalSdkPromise = null;
+function loadPaypalSdk() {
+  if (paypalSdkPromise) return paypalSdkPromise;
+  paypalSdkPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(CONFIG.PAYPAL_CLIENT_ID)}&currency=USD&intent=capture`;
+    script.onload = () => resolve(window.paypal);
+    script.onerror = () => reject(new Error("PayPal SDK failed to load"));
+    document.head.appendChild(script);
+  });
+  return paypalSdkPromise;
+}
+
+async function renderPaypalButtons(registrationId, amount, categoryLabel) {
+  const container = $("#paypal-button-container");
+  container.innerHTML = "";
+
+  let paypal;
+  try {
+    paypal = await loadPaypalSdk();
+  } catch (err) {
+    console.error("PayPal SDK load failed", err);
+    container.innerHTML = '<p class="form-msg show error">Payment is temporarily unavailable. Use "I\'ll pay later" below, or contact Stan Dixon directly.</p>';
+    return;
+  }
+
+  paypal.Buttons({
+    style: { layout: "vertical", color: "gold", shape: "rect", label: "pay" },
+    createOrder: (data, actions) => actions.order.create({
+      purchase_units: [{
+        description: `${categoryLabel} — Sam Anders Serenity Scramble (${registrationId})`,
+        custom_id: registrationId,
+        amount: { currency_code: "USD", value: String(amount) },
+      }],
+    }),
+    onApprove: (data, actions) => actions.order.capture().then(() => {
+      container.innerHTML = "";
+      showMsg(
+        "Payment received — thank you! Your spot is confirmed. (It can take a minute for your registration record to update.)",
+        "success"
+      );
+    }),
+    onCancel: () => {
+      // No-op: they can just click the button again, or use "I'll pay later".
+    },
+    onError: (err) => {
+      console.error("PayPal checkout error", err);
+      showMsg("Something went wrong with PayPal. Please try again, or use \"I'll pay later\" below.", "error");
+    },
+  }).render("#paypal-button-container");
+}
 
 // ---- Submit ----
 $("#reg-form").addEventListener("submit", async (e) => {
@@ -186,12 +242,12 @@ $("#reg-form").addEventListener("submit", async (e) => {
   }
 
   const backendConfigured = CONFIG.APPS_SCRIPT_URL && !CONFIG.APPS_SCRIPT_URL.startsWith("PASTE_");
-  const paymentConfigured = CONFIG.GIVEBUTTER_CAMPAIGN_URL && !CONFIG.GIVEBUTTER_CAMPAIGN_URL.startsWith("PASTE_");
+  const paymentConfigured = CONFIG.PAYPAL_CLIENT_ID && !CONFIG.PAYPAL_CLIENT_ID.startsWith("PASTE_");
 
-  // Only go fully live (save + send to payment) when BOTH the backend and the
-  // Givebutter payment page are configured — otherwise we'd capture someone's
-  // registration and then hand them a dead payment link. Until then, point people
-  // to the coordinator so no one falls into a broken flow.
+  // Only go fully live (save + show a real payment button) when BOTH the backend
+  // and PayPal are configured — otherwise we'd capture someone's registration and
+  // then hand them a payment step that doesn't work. Until then, point people to
+  // the coordinator so no one falls into a broken flow.
   if (!backendConfigured || !paymentConfigured) {
     showMsg(
       "Online registration is being finalized. To reserve your spot right now, contact Stan Dixon at (404) 210-1740 or stanldixon@gmail.com.",
@@ -219,17 +275,20 @@ $("#reg-form").addEventListener("submit", async (e) => {
     return;
   }
 
-  const fundId = CONFIG.FUNDS[category] || "";
-  const payUrl = new URL(CONFIG.GIVEBUTTER_CAMPAIGN_URL);
-  payUrl.searchParams.set("amount", String(amount));
-  if (fundId && !fundId.startsWith("PASTE_")) payUrl.searchParams.set("fund", fundId);
-
+  const categoryLabel = currentCategoryLabel();
   $("#confirm-reg-id").textContent = registrationId;
   $("#confirm-amount").textContent = `$${amount.toLocaleString()}`;
-  $("#pay-link").href = payUrl.toString();
   $("#confirm-panel").classList.add("show");
   form.querySelectorAll("input, select, textarea, button[type=submit]").forEach((el) => (el.disabled = true));
   showMsg("Registration captured. Check your email for a confirmation.", "success");
+
+  renderPaypalButtons(registrationId, amount, categoryLabel);
+});
+
+// "I'll pay later" — the spot is already saved as Pending; just reassure them
+// and surface the emailed-payment-link note. No backend call needed.
+$("#pay-later-btn").addEventListener("click", () => {
+  $("#pay-later-note").classList.add("show");
 });
 
 // ---- Init ----
