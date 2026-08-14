@@ -983,6 +983,46 @@ section { padding: 88px 0; position: relative; z-index: 1; }
    full width of .pay-actions like the old Pay Now button used to. */
 #paypal-button-container { width: 100%; }
 
+/* Big, unmissable confirmation once PayPal capture succeeds — deliberately
+   the loudest thing on the page since this is the "you're done" moment. */
+.payment-success {
+  display: none;
+  width: 100%;
+  color: var(--fairway-deep);
+  background: var(--fairway-light);
+  border: 4px solid var(--ink-strong);
+  border-radius: 10px;
+  padding: 34px 22px;
+  box-shadow: var(--shadow-hard-lg);
+  text-align: center;
+  box-sizing: border-box;
+}
+.payment-success.show { display: block; }
+.payment-success-check {
+  display: block;
+  font-size: 3.2rem;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.payment-success-title {
+  display: block;
+  font-family: 'Anton', sans-serif;
+  font-size: clamp(2rem, 6vw, 2.8rem);
+  line-height: 1.1;
+  color: var(--fairway-deep);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.payment-success-sub {
+  display: block;
+  margin-top: 10px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 /* Secondary, quieter "pay later" affordance — deliberately understated so
    Pay Now reads as the expected action, without hiding the escape hatch. */
 .pay-later-btn {

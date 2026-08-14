@@ -364,12 +364,17 @@
       <div class="form-msg" id="form-msg"></div>
 
       <div class="confirm-panel" id="confirm-panel">
-        <p>You're almost there &mdash; your spot is <strong>reserved, but not yet confirmed</strong>. Your reference is:</p>
+        <p id="confirm-intro">You're almost there &mdash; your spot is <strong>reserved, but not yet confirmed</strong>. Your reference is:</p>
         <div class="reg-id" id="confirm-reg-id">RGS-000000</div>
-        <p>Spots are confirmed in the order payments arrive. Pay your <strong id="confirm-amount">$150</strong> now to lock yours in before the field fills.</p>
+        <p id="confirm-payline">Spots are confirmed in the order payments arrive. Pay your <strong id="confirm-amount">$150</strong> now to lock yours in before the field fills.</p>
         <div class="pay-actions">
           <div id="paypal-button-container"></div>
-          <span class="pay-nudge">&#128274; Takes about a minute &middot; secure payment through PayPal</span>
+          <div class="payment-success" id="payment-success">
+            <span class="payment-success-check">&#9989;</span>
+            <span class="payment-success-title">You're Confirmed!</span>
+            <span class="payment-success-sub">Payment received &mdash; thanks for registering. See you on the course!</span>
+          </div>
+          <span class="pay-nudge" id="pay-nudge">&#128274; Takes about a minute &middot; secure payment through PayPal</span>
           <button type="button" class="pay-later-btn" id="pay-later-btn">I'll pay later</button>
         </div>
         <div class="pay-later-note" id="pay-later-note">

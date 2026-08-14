@@ -160,10 +160,13 @@ async function renderPaypalButtons(registrationId, amount, categoryLabel) {
     }),
     onApprove: (data, actions) => actions.order.capture().then(() => {
       container.innerHTML = "";
-      showMsg(
-        "Payment received — thank you! Your spot is confirmed. (It can take a minute for your registration record to update.)",
-        "success"
-      );
+      $("#pay-nudge").style.display = "none";
+      $("#pay-later-btn").style.display = "none";
+      $("#pay-later-note").classList.remove("show");
+      $("#confirm-intro").style.display = "none";
+      $("#confirm-payline").style.display = "none";
+      $("#submit-btn").style.display = "none";
+      $("#payment-success").classList.add("show");
     }),
     onCancel: () => {
       // No-op: they can just click the button again, or use "I'll pay later".
@@ -280,6 +283,7 @@ $("#reg-form").addEventListener("submit", async (e) => {
   $("#confirm-amount").textContent = `$${amount.toLocaleString()}`;
   $("#confirm-panel").classList.add("show");
   form.querySelectorAll("input, select, textarea, button[type=submit]").forEach((el) => (el.disabled = true));
+  submitBtn.style.display = "none";
   showMsg("Registration captured. Check your email for a confirmation.", "success");
 
   renderPaypalButtons(registrationId, amount, categoryLabel);
