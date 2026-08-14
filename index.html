@@ -239,7 +239,7 @@
     <div class="section-head">
       <span class="eyebrow sticker sm">Ready To Join Us?</span>
       <h2>Register</h2>
-      <p>Fill this out first &mdash; it captures who you are and what you're registering for, then sends you to our secure Givebutter payment page for the correct amount.</p>
+      <p>Fill this out first &mdash; it captures who you are and what you're registering for, then lets you pay securely with PayPal for the correct amount.</p>
     </div>
 
     <div class="reg-toggle">
@@ -364,10 +364,17 @@
       <div class="form-msg" id="form-msg"></div>
 
       <div class="confirm-panel" id="confirm-panel">
-        <p>You're almost done. Your registration reference is:</p>
+        <p>You're almost there &mdash; your spot is <strong>reserved, but not yet confirmed</strong>. Your reference is:</p>
         <div class="reg-id" id="confirm-reg-id">RGS-000000</div>
-        <p>We've emailed this to you for your records. Click below to complete payment securely through Givebutter for <strong id="confirm-amount">$150</strong>.</p>
-        <a href="#" class="btn btn-primary" id="pay-link" target="_blank" rel="noopener">Proceed to Payment on Givebutter</a>
+        <p>Spots are confirmed in the order payments arrive. Pay your <strong id="confirm-amount">$150</strong> now to lock yours in before the field fills.</p>
+        <div class="pay-actions">
+          <div id="paypal-button-container"></div>
+          <span class="pay-nudge">&#128274; Takes about a minute &middot; secure payment through PayPal</span>
+          <button type="button" class="pay-later-btn" id="pay-later-btn">I'll pay later</button>
+        </div>
+        <div class="pay-later-note" id="pay-later-note">
+          That's okay &mdash; we've emailed your reference and a secure payment link. Just remember: your spot isn't secured until payment is received, and spots are confirmed in the order they're paid.
+        </div>
       </div>
     </form>
   </div>

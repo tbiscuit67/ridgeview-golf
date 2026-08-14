@@ -970,6 +970,59 @@ section { padding: 88px 0; position: relative; z-index: 1; }
   box-shadow: var(--shadow-hard-sm);
 }
 
+.pay-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* PayPal renders its own iframe/buttons here — just make sure it takes the
+   full width of .pay-actions like the old Pay Now button used to. */
+#paypal-button-container { width: 100%; }
+
+/* Secondary, quieter "pay later" affordance — deliberately understated so
+   Pay Now reads as the expected action, without hiding the escape hatch. */
+.pay-later-btn {
+  background: none;
+  border: none;
+  color: var(--fairway-deep);
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.pay-later-btn:hover { color: var(--flag); }
+
+/* Small reassurance line under Pay Now — lowers hesitation without shouting. */
+.pay-nudge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft, #5b5b52);
+  margin-top: -2px;
+}
+
+.pay-later-note {
+  display: none;
+  max-width: 460px;
+  margin: 16px auto 0;
+  padding: 14px 16px;
+  text-align: left;
+  background: var(--fairway-light);
+  border: 3px solid var(--ink-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow-hard-sm);
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--fairway-deep);
+}
+.pay-later-note.show { display: block; }
+
 /* Contact / footer */
 .contact-box {
   display: flex;
