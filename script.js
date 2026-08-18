@@ -21,6 +21,11 @@ const PLAY_LABEL = "Play a Round";
 
 const state = { activeTab: "play" };
 
+// Minted once per registration on the client and reused across retries (see the
+// submit handler + saveRegistration). Keeping it stable means a resubmission maps to
+// the SAME row on the backend instead of creating a duplicate.
+let currentRegistrationId = null;
+
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -115,6 +120,91 @@ function showMsg(text, type) {
   const el = $("#form-msg");
   el.textContent = text;
   el.className = `form-msg show ${type}`;
+}
+
+// ---- Reliable save (works behind VPNs / proxies / script blockers) ----
+// A POST to an Apps Script /exec URL doesn't return its JSON directly — it 302-
+// redirects to a googleusercontent.com address that carries the reply. Plenty of
+// VPNs, corporate proxies, and privacy/script blockers mangle or block that second
+// hop, so the browser can't READ the reply even though the POST reached the backend
+// and the row saved. That produced false "something went wrong" errors and duplicate
+// rows from people resubmitting. Fix: the client mints the RegistrationID itself (so
+// it never needs to read the reply to learn it), the backend treats a repeat of that
+// ID as the same registration (no duplicate row/email), and we confirm the save over
+// the SAME JSONP <script>-tag GET channel the golfer counter uses — which gets through
+// the CORS/proxy/blocker setups that break the POST reply.
+function makeRegistrationId() {
+  return "RGS-" + Date.now().toString(36).toUpperCase() +
+    "-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+}
+
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+// Rejects if `promise` hasn't settled within `ms`. Deliberately does NOT abort the
+// underlying request — we want the POST to keep going and save server-side even once
+// we stop waiting to read its (often unreadable) reply.
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+}
+
+// JSONP GET — loads the URL as a <script> tag (same technique as the counter in
+// enhance.js). Cross-origin script loads aren't subject to CORS and are rarely
+// blocked, which is exactly why we confirm the save this way.
+function jsonpGet(baseUrl, params, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const cb = "__regChk" + Date.now() + Math.floor(Math.random() * 1000);
+    const script = document.createElement("script");
+    const timer = setTimeout(() => { cleanup(); reject(new Error("timeout")); }, timeoutMs || 8000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cb];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cb] = (data) => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error("load error")); };
+    const q = Object.keys(params).map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
+    q.push("callback=" + cb);
+    script.src = baseUrl + (baseUrl.indexOf("?") === -1 ? "?" : "&") + q.join("&");
+    document.head.appendChild(script);
+  });
+}
+
+// Polls the backend (via JSONP) until it confirms the registration row exists.
+// Retries a few times to allow for the row-write to propagate right after the POST.
+async function confirmRegistrationSaved(registrationId) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      const data = await jsonpGet(CONFIG.APPS_SCRIPT_URL, { regId: registrationId }, 8000);
+      if (data && data.found) return true;
+    } catch (err) {
+      // Ignore and retry — a restrictive network may drop an individual attempt.
+    }
+    await sleep(1500);
+  }
+  return false;
+}
+
+// Saves the registration and resolves true once the save is CONFIRMED. Tries to read
+// the POST reply for a fast path (works for most people), but never depends on it: if
+// that reply is unreadable (VPN/proxy/blocker), it confirms out-of-band via JSONP.
+async function saveRegistration(payload) {
+  try {
+    const res = await withTimeout(fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    }), 12000);
+    const data = await res.json();
+    if (data && (data.registrationId || data.ok)) return true;
+  } catch (err) {
+    // Expected behind restrictive networks: the POST still reached the backend and
+    // saved — we just couldn't read the reply. Confirm it landed via JSONP below.
+    console.warn("Couldn't read POST reply; confirming save via JSONP", err);
+  }
+  return await confirmRegistrationSaved(payload.registrationId);
 }
 
 // ---- PayPal Smart Buttons ----
@@ -261,22 +351,20 @@ $("#reg-form").addEventListener("submit", async (e) => {
     return;
   }
 
-  let registrationId = null;
-  try {
-    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    registrationId = data.registrationId;
-  } catch (err) {
-    console.error("Registration submission failed", err);
-    showMsg("Something went wrong submitting your registration. Please try again or contact Stan Dixon directly.", "error");
+  // Mint the RegistrationID here (not on the server) and reuse it across retries, so
+  // a resubmission maps to the SAME backend row — no duplicate, no duplicate email.
+  if (!currentRegistrationId) currentRegistrationId = makeRegistrationId();
+  payload.registrationId = currentRegistrationId;
+
+  const saved = await saveRegistration(payload);
+  if (!saved) {
+    console.error("Registration could not be confirmed");
+    showMsg("We couldn't confirm your registration. Please try again, or contact Stan Dixon at (404) 210-1740 or stanldixon@gmail.com.", "error");
     submitBtn.disabled = false;
     submitBtn.textContent = "Continue to Payment";
     return;
   }
+  const registrationId = currentRegistrationId;
 
   const categoryLabel = currentCategoryLabel();
   $("#confirm-reg-id").textContent = registrationId;
